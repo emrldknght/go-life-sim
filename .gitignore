@@ -1,2 +1,7 @@
 _old
 *.bak*.*
+frontend/node_modules
+node_modules
+.idea
+frontend/pnpm-lock.yaml
+static

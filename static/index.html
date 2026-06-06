@@ -1,36 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Моя симуляция</title>
-  <style>
-		body { margin: 0; overflow: hidden; font-family: Arial; }
-		#info {
-			position: absolute;
-			top: 20px;
-			left: 20px;
-			color: white;
-			background: rgba(0,0,0,0.7);
-			padding: 10px;
-			border-radius: 5px;
-			z-index: 100;
-			pointer-events: none;
-		}
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>🌍 Evolution Simulator | Matrix of Life</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script type="module" crossorigin src="/assets/index-DoU8jFWc.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-B2VpPHOj.css">
 </head>
 <body>
-<div id="info">
-  <h2>Симуляция</h2>
-  <p>Агентов: <span id="count">0</span></p>
+<div class="info-panel">
+  <h1>🌍 EVOLUTION SIM <span>v0.2</span></h1>
+  <div>Цифровая экосистема | Хищник ↔ Травоядное ↔ Растение</div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-color plant"></div><span>Растения</span></div>
+    <div class="legend-item"><div class="legend-color herbivore"></div><span>Травоядные</span></div>
+    <div class="legend-item"><div class="legend-color predator"></div><span>Хищники</span></div>
+  </div>
 </div>
 
-<!-- Подключим Three.js и наш скрипт позже -->
-<script type="importmap">
-  {
-      "imports": {
-          "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
-      }
-  }
-</script>
-<script type="module" src="main.js"></script>
+<div class="stats-panel">
+  <div>🌿 <span class="plant">Растения:</span> <span id="plant-count" class="plant">0</span></div>
+  <div>🦌 <span class="herbivore">Травоядные:</span> <span id="herbivore-count" class="herbivore">0</span></div>
+  <div>🐺 <span class="predator">Хищники:</span> <span id="predator-count" class="predator">0</span></div>
+  <hr>
+  <div>📊 <span class="total">Всего:</span> <span id="total-count" class="total">0</span></div>
+</div>
+
+<div class="controls">
+  <button id="pause-btn">⏸️ Pause</button>
+  <button id="reset-btn">🔄 Reset World</button>
+</div>
+
+<div class="status" id="status">🟢 Running</div>
+
 </body>
 </html>

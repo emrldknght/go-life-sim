@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>🌍 Evolution Simulator | Matrix of Life</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<div class="info-panel">
+  <h1>🌍 EVOLUTION SIM <span>v0.2</span></h1>
+  <div>Цифровая экосистема | Хищник ↔ Травоядное ↔ Растение</div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-color plant"></div><span>Растения</span></div>
+    <div class="legend-item"><div class="legend-color herbivore"></div><span>Травоядные</span></div>
+    <div class="legend-item"><div class="legend-color predator"></div><span>Хищники</span></div>
+  </div>
+</div>
+
+<div class="stats-panel">
+  <div>🌿 <span class="plant">Растения:</span> <span id="plant-count" class="plant">0</span></div>
+  <div>🦌 <span class="herbivore">Травоядные:</span> <span id="herbivore-count" class="herbivore">0</span></div>
+  <div>🐺 <span class="predator">Хищники:</span> <span id="predator-count" class="predator">0</span></div>
+  <hr>
+  <div>📊 <span class="total">Всего:</span> <span id="total-count" class="total">0</span></div>
+</div>
+
+<div class="controls">
+  <button id="pause-btn">⏸️ Pause</button>
+  <button id="reset-btn">🔄 Reset World</button>
+</div>
+
+<div class="status" id="status">🟢 Running</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
