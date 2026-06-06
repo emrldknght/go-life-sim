@@ -9,7 +9,7 @@ import (
 
 	"mysimulation/internal/world"
 
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 // Command — структура команды от клиента
@@ -33,14 +33,28 @@ func NewHub(w *world.World) *Hub {
 // Handler возвращает HTTP хендлер для WebSocket
 func (h *Hub) Handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-			OriginPatterns: []string{"*"},
-		})
+		opts := &websocket.AcceptOptions{
+			OriginPatterns: []string{
+				"localhost:3000",
+				"localhost:8080",
+				"http://localhost:3000",
+				"http://localhost:8080",
+			},
+		}
+
+		conn, err := websocket.Accept(w, r, opts)
 		if err != nil {
 			log.Printf("WebSocket accept error: %v", err)
 			return
 		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		// Безопасное закрытие с обработкой ошибки
+		defer func() {
+			err := conn.Close(websocket.StatusNormalClosure, "")
+			if err != nil {
+				log.Printf("WebSocket close error: %v", err)
+			}
+		}()
 
 		log.Println("✅ Клиент подключился")
 		h.handleConnection(conn)
@@ -68,7 +82,7 @@ func (h *Hub) handleConnection(conn *websocket.Conn) {
 
 		err = conn.Write(ctx, websocket.MessageText, data)
 		if err != nil {
-			log.Printf("Клиент отключился: %v", err)
+			log.Printf("Клиент отключился (запись): %v", err)
 			break
 		}
 	}
