@@ -8,9 +8,15 @@ export class WorldConnection {
 	private maxReconnectAttempts = 5;
 	private callbacks: WorldUpdateCallback[] = [];
 
-	connect(): void {
+	/** Same-origin WebSocket: dev → Vite proxy, prod → Go на том же host:port */
+	private getWebSocketUrl(): string {
 		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-		const wsUrl = `${protocol}//${window.location.hostname}:8080/ws`;
+		return `${protocol}//${window.location.host}/ws`;
+	}
+
+	connect(): void {
+		const wsUrl = this.getWebSocketUrl();
+		console.log(`🔄 Подключение к WebSocket: ${wsUrl}`);
 
 		this.socket = new WebSocket(wsUrl);
 
@@ -46,7 +52,6 @@ export class WorldConnection {
 		}
 	}
 
-	// Отправка команды (принимает любой допустимый тип)
 	sendCommand(command: Command): void {
 		if (this.socket && this.socket.readyState === WebSocket.OPEN) {
 			this.socket.send(JSON.stringify(command));
@@ -55,17 +60,14 @@ export class WorldConnection {
 		}
 	}
 
-	// Удобный метод для смены скорости
 	setSpeed(speed: number): void {
 		this.sendCommand({ action: 'set_speed', speed });
 	}
 
-	// Удобный метод для сброса
 	reset(): void {
 		this.sendCommand({ action: 'reset' });
 	}
 
-	// Удобный метод для паузы/возобновления
 	pause(): void {
 		this.sendCommand({ action: 'pause' });
 	}
