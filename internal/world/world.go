@@ -40,6 +40,7 @@ type World struct {
 	agents map[int]*agent.Agent
 	nextID int
 	cfg    Config
+	paused bool // добавляем флаг паузы
 }
 
 // New создаёт новый мир с конфигурацией по умолчанию
@@ -53,9 +54,29 @@ func NewWithConfig(cfg Config) *World {
 		agents: make(map[int]*agent.Agent),
 		nextID: 1,
 		cfg:    cfg,
+		paused: false,
 	}
 	w.Reset()
 	return w
+}
+
+// SetPaused — устанавливает состояние паузы
+func (w *World) SetPaused(paused bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.paused = paused
+	if paused {
+		log.Println("⏸️ Симуляция на паузе")
+	} else {
+		log.Println("▶️ Симуляция возобновлена")
+	}
+}
+
+// IsPaused — возвращает состояние паузы
+func (w *World) IsPaused() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.paused
 }
 
 // SetSpeed — устанавливает скорость симуляции
@@ -162,6 +183,10 @@ func (w *World) GetAgents() []*agent.Agent {
 func (w *World) Update() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	if w.paused {
+		return
+	}
 
 	// Получаем текущий множитель скорости
 	speed := w.cfg.Speed

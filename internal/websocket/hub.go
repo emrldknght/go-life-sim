@@ -90,6 +90,7 @@ func (h *Hub) handleConnection(conn *websocket.Conn) {
 
 // handleCommands — чтение команд от клиента
 // handleCommands — чтение команд от клиента
+// handleCommands — чтение команд от клиента
 func (h *Hub) handleCommands(conn *websocket.Conn, ctx context.Context) {
 	for {
 		_, msg, err := conn.Read(ctx)
@@ -115,6 +116,12 @@ func (h *Hub) handleCommands(conn *websocket.Conn, ctx context.Context) {
 			} else {
 				log.Printf("⚠️ Неверное значение скорости: %.2f (должно быть 0.25-4.0)", cmd.Speed)
 			}
+		case "pause":
+			h.world.SetPaused(true)
+			log.Println("⏸️ Получена команда паузы")
+		case "resume":
+			h.world.SetPaused(false)
+			log.Println("▶️ Получена команда возобновления")
 		default:
 			log.Printf("Неизвестная команда: %s", cmd.Action)
 		}
