@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"sync"
+	"time"
 
 	"mysimulation/internal/agent"
 )
@@ -12,7 +13,8 @@ import (
 type Config struct {
 	Width             float64 // Ширина мира по X
 	Height            float64 // Высота мира по Z
-	TickMs            int64   // Базовый тик в мс
+	BaseTickMs        int64   // базовый тик в миллисекундах
+	Speed             float64 // множитель скорости (0.25, 0.5, 1, 2, 4)
 	InitialPlants     int     // начальное количество растений
 	InitialHerbivores int     // начальное количество травоядных
 	InitialPredators  int     // начальное количество хищников
@@ -23,7 +25,8 @@ func DefaultConfig() Config {
 	return Config{
 		Width:             20.0,
 		Height:            20.0,
-		TickMs:            50,
+		BaseTickMs:        50,
+		Speed:             1.0,
 		InitialPlants:     25,
 		InitialHerbivores: 12,
 		InitialPredators:  4,
@@ -52,6 +55,42 @@ func NewWithConfig(cfg Config) *World {
 	}
 	w.Reset()
 	return w
+}
+
+// SetSpeed — устанавливает скорость симуляции
+func (w *World) SetSpeed(speed float64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	// Ограничиваем скорость разумными пределами
+	if speed < 0.25 {
+		speed = 0.25
+	}
+	if speed > 4.0 {
+		speed = 4.0
+	}
+
+	w.cfg.Speed = speed
+	log.Printf("⚡ Скорость симуляции изменена: x%.2f", speed)
+}
+
+// GetSpeed — возвращает текущую скорость
+func (w *World) GetSpeed() float64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.cfg.Speed
+}
+
+// GetTickDuration — возвращает текущую длительность тика с учётом скорости
+func (w *World) GetTickDuration() time.Duration {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	tickMs := float64(w.cfg.BaseTickMs) / w.cfg.Speed
+	if tickMs < 10 {
+		tickMs = 10 // Минимум 10 мс (100 FPS симуляции)
+	}
+	return time.Duration(tickMs) * time.Millisecond
 }
 
 // Reset — очищает мир и создаёт начальную популяцию
@@ -123,20 +162,23 @@ func (w *World) Update() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	// 1. Движение
+	// Получаем текущий множитель скорости
+	speed := w.cfg.Speed
+
+	// 1. Движение (скорость движения зависит от множителя)
 	for _, a := range w.agents {
-		w.moveAgentLocked(a)
+		w.moveAgentLocked(a, speed)
 	}
 
-	// 2. Поедание
+	// 2. Поедание (радиус не меняется, но частота обновлений уже выше)
 	for _, a := range w.agents {
 		w.handleEatingLocked(a)
 	}
 
-	// 3. Трата энергии и смерть
+	// 3. Трата энергии и смерть (трата зависит от скорости)
 	toRemove := []int{}
 	for _, a := range w.agents {
-		w.spendEnergyLocked(a)
+		w.spendEnergyLocked(a, speed)
 		if a.Energy <= 0 {
 			toRemove = append(toRemove, a.ID)
 		}
@@ -145,25 +187,28 @@ func (w *World) Update() {
 		w.removeAgentLocked(id)
 	}
 
-	// 4. Размножение
+	// 4. Размножение (шанс зависит от скорости)
 	for _, a := range w.agents {
-		w.tryReproduceLocked(a)
+		w.tryReproduceLocked(a, speed)
 	}
 
-	// 5. Восполнение растений
-	w.growPlantsLocked()
+	// 5. Восполнение растений (скорость роста зависит от скорости мира)
+	w.growPlantsLocked(speed)
 }
 
-// moveAgentLocked — движение агента
-func (w *World) moveAgentLocked(a *agent.Agent) {
+// moveAgentLocked — движение агента с учётом скорости мира
+func (w *World) moveAgentLocked(a *agent.Agent, worldSpeed float64) {
 	if a.Type == agent.TypePlant {
 		return
 	}
 
-	speed := 0.4
+	// Базовая скорость агента
+	baseSpeed := 0.4
 	if a.Type == agent.TypePredator {
-		speed = 0.5
+		baseSpeed = 0.5
 	}
+	// Итоговая скорость = базовая * скорость мира
+	speed := baseSpeed * worldSpeed
 
 	// Поиск цели
 	var target *agent.Agent
@@ -173,7 +218,6 @@ func (w *World) moveAgentLocked(a *agent.Agent) {
 		if other == a {
 			continue
 		}
-
 		isTarget := false
 		switch a.Type {
 		case agent.TypeHerbivore:
@@ -181,7 +225,6 @@ func (w *World) moveAgentLocked(a *agent.Agent) {
 		case agent.TypePredator:
 			isTarget = other.Type == agent.TypeHerbivore
 		}
-
 		if isTarget {
 			dist := distance(a, other)
 			if dist < minDist {
@@ -229,7 +272,6 @@ func (w *World) handleEatingLocked(a *agent.Agent) {
 	case agent.TypeHerbivore:
 		var nearest *agent.Agent
 		minDist := eatRadius
-
 		for _, other := range w.agents {
 			if other.Type == agent.TypePlant && other != a {
 				dist := distance(a, other)
@@ -239,7 +281,6 @@ func (w *World) handleEatingLocked(a *agent.Agent) {
 				}
 			}
 		}
-
 		if nearest != nil {
 			w.removeAgentLocked(nearest.ID)
 			a.Energy += 30
@@ -251,7 +292,6 @@ func (w *World) handleEatingLocked(a *agent.Agent) {
 	case agent.TypePredator:
 		var nearest *agent.Agent
 		minDist := eatRadius
-
 		for _, other := range w.agents {
 			if other.Type == agent.TypeHerbivore && other != a {
 				dist := distance(a, other)
@@ -261,7 +301,6 @@ func (w *World) handleEatingLocked(a *agent.Agent) {
 				}
 			}
 		}
-
 		if nearest != nil {
 			w.removeAgentLocked(nearest.ID)
 			a.Energy += 40
@@ -272,35 +311,45 @@ func (w *World) handleEatingLocked(a *agent.Agent) {
 	}
 }
 
-// spendEnergyLocked — трата энергии
-func (w *World) spendEnergyLocked(a *agent.Agent) {
-	cost := 0.5
+// spendEnergyLocked — трата энергии с учётом скорости мира
+func (w *World) spendEnergyLocked(a *agent.Agent, worldSpeed float64) {
+	// Базовая стоимость
+	baseCost := 0.5
 	switch a.Type {
 	case agent.TypeHerbivore:
-		cost = 0.6
+		baseCost = 0.6
 	case agent.TypePredator:
-		cost = 0.8
+		baseCost = 0.8
 	case agent.TypePlant:
-		cost = 0.1
+		baseCost = 0.1
 	}
+	// Стоимость умножается на скорость мира
+	cost := baseCost * worldSpeed
 	a.Energy -= cost
 }
 
-// tryReproduceLocked — размножение
-func (w *World) tryReproduceLocked(a *agent.Agent) {
+// tryReproduceLocked — размножение с учётом скорости мира
+func (w *World) tryReproduceLocked(a *agent.Agent, worldSpeed float64) {
 	requiredEnergy := 55.0
 	if a.Energy < requiredEnergy {
 		return
 	}
 
-	chance := 0.02
+	// Базовый шанс
+	baseChance := 0.02
 	switch a.Type {
 	case agent.TypeHerbivore:
-		chance = 0.04
+		baseChance = 0.04
 	case agent.TypePredator:
-		chance = 0.025
+		baseChance = 0.025
 	case agent.TypePlant:
-		chance = 0.05
+		baseChance = 0.05
+	}
+
+	// Шанс умножается на скорость мира (но не более 0.15)
+	chance := baseChance * worldSpeed
+	if chance > 0.15 {
+		chance = 0.15
 	}
 
 	if rand.Float64() < chance {
@@ -309,8 +358,8 @@ func (w *World) tryReproduceLocked(a *agent.Agent) {
 	}
 }
 
-// growPlantsLocked — восстановление растений
-func (w *World) growPlantsLocked() {
+// growPlantsLocked — восстановление растений с учётом скорости
+func (w *World) growPlantsLocked(worldSpeed float64) {
 	plantCount := 0
 	for _, a := range w.agents {
 		if a.Type == agent.TypePlant {
@@ -318,9 +367,18 @@ func (w *World) growPlantsLocked() {
 		}
 	}
 
-	minPlants := 15
-	if plantCount < minPlants {
-		newPlants := minPlants - plantCount
+	// Целевое количество растений
+	targetPlants := 15
+
+	if plantCount < targetPlants {
+		// Количество новых растений зависит от скорости
+		newPlants := int(float64(targetPlants-plantCount) * worldSpeed)
+		if newPlants < 1 {
+			newPlants = 1
+		}
+		if newPlants > 10 {
+			newPlants = 10
+		}
 		for i := 0; i < newPlants; i++ {
 			w.addAgentLocked(agent.TypePlant, 50.0)
 		}

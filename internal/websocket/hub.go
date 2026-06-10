@@ -89,6 +89,7 @@ func (h *Hub) handleConnection(conn *websocket.Conn) {
 }
 
 // handleCommands — чтение команд от клиента
+// handleCommands — чтение команд от клиента
 func (h *Hub) handleCommands(conn *websocket.Conn, ctx context.Context) {
 	for {
 		_, msg, err := conn.Read(ctx)
@@ -107,6 +108,13 @@ func (h *Hub) handleCommands(conn *websocket.Conn, ctx context.Context) {
 		case "reset":
 			h.world.Reset()
 			log.Println("🔄 Получена команда перезапуска")
+		case "set_speed":
+			if cmd.Speed >= 0.25 && cmd.Speed <= 4.0 {
+				h.world.SetSpeed(cmd.Speed)
+				log.Printf("⚡ Скорость изменена на: x%.2f", cmd.Speed)
+			} else {
+				log.Printf("⚠️ Неверное значение скорости: %.2f (должно быть 0.25-4.0)", cmd.Speed)
+			}
 		default:
 			log.Printf("Неизвестная команда: %s", cmd.Action)
 		}

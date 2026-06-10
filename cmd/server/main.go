@@ -16,10 +16,11 @@ func main() {
 	// Создаём WebSocket хаб
 	hub := websocket.NewHub(w)
 
-	// Запускаем симуляцию в фоне
+	// Запускаем симуляцию с динамическим тиком
 	go func() {
-		ticker := time.NewTicker(50 * time.Millisecond)
-		for range ticker.C {
+		for {
+			// Ждём нужное время в зависимости от текущей скорости
+			time.Sleep(w.GetTickDuration())
 			w.Update()
 		}
 	}()
