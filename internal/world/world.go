@@ -2,6 +2,7 @@ package world
 
 import (
 	"log"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -237,7 +238,8 @@ func (w *World) moveAgentLocked(a *agent.Agent, worldSpeed float64) {
 	if target != nil {
 		dx := target.X - a.X
 		dz := target.Z - a.Z
-		length := dx*dx + dz*dz
+		// ИСПРАВЛЕНО: используем math.Sqrt для получения реального расстояния
+		length := math.Sqrt(dx*dx + dz*dz)
 		if length > 0 {
 			dx /= length
 			dz /= length
@@ -385,9 +387,9 @@ func (w *World) growPlantsLocked(worldSpeed float64) {
 	}
 }
 
-// distance — квадрат расстояния между агентами
+// distance — реальное расстояние между агентами
 func distance(a, b *agent.Agent) float64 {
 	dx := a.X - b.X
 	dz := a.Z - b.Z
-	return dx*dx + dz*dz
+	return math.Sqrt(dx*dx + dz*dz)
 }
