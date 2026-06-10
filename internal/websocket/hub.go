@@ -3,8 +3,10 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"mysimulation/internal/world"
@@ -48,57 +50,69 @@ func (h *Hub) Handler() http.HandlerFunc {
 			return
 		}
 
-		// Безопасное закрытие с обработкой ошибки
-		defer func() {
-			err := conn.Close(websocket.StatusNormalClosure, "")
-			if err != nil {
-				log.Printf("WebSocket close error: %v", err)
-			}
+		log.Println("✅ Клиент подключился")
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		var wg sync.WaitGroup
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			h.handleCommands(conn, ctx, cancel)
 		}()
 
-		log.Println("✅ Клиент подключился")
-		h.handleConnection(conn)
+		h.handleConnection(conn, ctx, cancel)
+
+		wg.Wait()
+
+		if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+			log.Printf("WebSocket close error: %v", err)
+		}
+
+		log.Println("👋 Сессия полностью завершена")
 	}
 }
 
-// handleConnection — обработка одного соединения
-// handleConnection — обработка одного соединения
-func (h *Hub) handleConnection(conn *websocket.Conn) {
-	ctx := context.Background()
-
-	// Канал для команд от клиента
-	go h.handleCommands(conn, ctx)
-
-	// Отправка данных клиенту
+// handleConnection — цикл отправки данных клиенту
+func (h *Hub) handleConnection(conn *websocket.Conn, ctx context.Context, cancel context.CancelFunc) {
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		// ИСПРАВЛЕНО: используем безопасный DTO метод
-		agents := h.world.GetAgentsDTO()
-		data, err := json.Marshal(agents)
-		if err != nil {
-			log.Printf("JSON marshal error: %v", err)
-			continue
-		}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			agents := h.world.GetAgentsDTO()
+			data, err := json.Marshal(agents)
+			if err != nil {
+				log.Printf("JSON marshal error: %v", err)
+				continue
+			}
 
-		err = conn.Write(ctx, websocket.MessageText, data)
-		if err != nil {
-			log.Printf("Клиент отключился (запись): %v", err)
-			break
+			if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
+				if ctx.Err() == nil {
+					log.Printf("Клиент отключился (запись): %v", err)
+					cancel()
+				}
+				return
+			}
 		}
 	}
 }
 
 // handleCommands — чтение команд от клиента
-// handleCommands — чтение команд от клиента
-// handleCommands — чтение команд от клиента
-func (h *Hub) handleCommands(conn *websocket.Conn, ctx context.Context) {
+func (h *Hub) handleCommands(conn *websocket.Conn, ctx context.Context, cancel context.CancelFunc) {
 	for {
 		_, msg, err := conn.Read(ctx)
 		if err != nil {
-			log.Printf("Клиент отключился (чтение): %v", err)
-			break
+			if ctx.Err() == nil && !errors.Is(err, context.Canceled) {
+				log.Printf("Клиент отключился (чтение): %v", err)
+				cancel()
+			}
+			return
 		}
 
 		var cmd Command

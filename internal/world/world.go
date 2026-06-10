@@ -199,7 +199,9 @@ func (w *World) removeAgentLocked(id int) {
 }
 
 // GetAgents — возвращает всех агентов (копию слайса)
+/* todo: - removed as unsafe
 func (w *World) GetAgents() []*agent.Agent {
+
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -209,6 +211,7 @@ func (w *World) GetAgents() []*agent.Agent {
 	}
 	return agentsList
 }
+*/
 
 // Update — один шаг симуляции
 func (w *World) Update() {
@@ -219,12 +222,9 @@ func (w *World) Update() {
 		return
 	}
 
-	// Получаем текущий множитель скорости
-	speed := w.cfg.Speed
-
 	// 1. Движение (скорость движения зависит от множителя)
 	for _, a := range w.agents {
-		w.moveAgentLocked(a, speed)
+		w.moveAgentLocked(a)
 	}
 
 	// 2. Поедание (радиус не меняется, но частота обновлений уже выше)
@@ -235,7 +235,7 @@ func (w *World) Update() {
 	// 3. Трата энергии и смерть (трата зависит от скорости)
 	toRemove := []int{}
 	for _, a := range w.agents {
-		w.spendEnergyLocked(a, speed)
+		w.spendEnergyLocked(a)
 		if a.Energy <= 0 {
 			toRemove = append(toRemove, a.ID)
 		}
@@ -246,26 +246,24 @@ func (w *World) Update() {
 
 	// 4. Размножение (шанс зависит от скорости)
 	for _, a := range w.agents {
-		w.tryReproduceLocked(a, speed)
+		w.tryReproduceLocked(a)
 	}
 
 	// 5. Восполнение растений (скорость роста зависит от скорости мира)
-	w.growPlantsLocked(speed)
+	w.growPlantsLocked()
 }
 
 // moveAgentLocked — движение агента с учётом скорости мира
-func (w *World) moveAgentLocked(a *agent.Agent, worldSpeed float64) {
+func (w *World) moveAgentLocked(a *agent.Agent) {
 	if a.Type == agent.TypePlant {
 		return
 	}
 
 	// Базовая скорость агента
-	baseSpeed := 0.4
+	speed := 0.4
 	if a.Type == agent.TypePredator {
-		baseSpeed = 0.5
+		speed = 0.5
 	}
-	// Итоговая скорость = базовая * скорость мира
-	speed := baseSpeed * worldSpeed
 
 	// Поиск цели
 	var target *agent.Agent
@@ -370,7 +368,7 @@ func (w *World) handleEatingLocked(a *agent.Agent) {
 }
 
 // spendEnergyLocked — трата энергии с учётом скорости мира
-func (w *World) spendEnergyLocked(a *agent.Agent, worldSpeed float64) {
+func (w *World) spendEnergyLocked(a *agent.Agent) {
 	// Базовая стоимость
 	baseCost := 0.5
 	switch a.Type {
@@ -381,33 +379,25 @@ func (w *World) spendEnergyLocked(a *agent.Agent, worldSpeed float64) {
 	case agent.TypePlant:
 		baseCost = 0.1
 	}
-	// Стоимость умножается на скорость мира
-	cost := baseCost * worldSpeed
-	a.Energy -= cost
+	a.Energy -= baseCost
 }
 
 // tryReproduceLocked — размножение с учётом скорости мира
-func (w *World) tryReproduceLocked(a *agent.Agent, worldSpeed float64) {
+func (w *World) tryReproduceLocked(a *agent.Agent) {
 	requiredEnergy := 55.0
 	if a.Energy < requiredEnergy {
 		return
 	}
 
 	// Базовый шанс
-	baseChance := 0.02
+	chance := 0.02
 	switch a.Type {
 	case agent.TypeHerbivore:
-		baseChance = 0.04
+		chance = 0.04
 	case agent.TypePredator:
-		baseChance = 0.025
+		chance = 0.025
 	case agent.TypePlant:
-		baseChance = 0.05
-	}
-
-	// Шанс умножается на скорость мира (но не более 0.15)
-	chance := baseChance * worldSpeed
-	if chance > 0.15 {
-		chance = 0.15
+		chance = 0.05
 	}
 
 	if rand.Float64() < chance {
@@ -417,7 +407,7 @@ func (w *World) tryReproduceLocked(a *agent.Agent, worldSpeed float64) {
 }
 
 // growPlantsLocked — восстановление растений с учётом скорости
-func (w *World) growPlantsLocked(worldSpeed float64) {
+func (w *World) growPlantsLocked() {
 	plantCount := 0
 	for _, a := range w.agents {
 		if a.Type == agent.TypePlant {
@@ -430,7 +420,7 @@ func (w *World) growPlantsLocked(worldSpeed float64) {
 
 	if plantCount < targetPlants {
 		// Количество новых растений зависит от скорости
-		newPlants := int(float64(targetPlants-plantCount) * worldSpeed)
+		newPlants := targetPlants - plantCount
 		if newPlants < 1 {
 			newPlants = 1
 		}
