@@ -62,6 +62,7 @@ func (h *Hub) Handler() http.HandlerFunc {
 }
 
 // handleConnection — обработка одного соединения
+// handleConnection — обработка одного соединения
 func (h *Hub) handleConnection(conn *websocket.Conn) {
 	ctx := context.Background()
 
@@ -73,7 +74,8 @@ func (h *Hub) handleConnection(conn *websocket.Conn) {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		agents := h.world.GetAgents()
+		// ИСПРАВЛЕНО: используем безопасный DTO метод
+		agents := h.world.GetAgentsDTO()
 		data, err := json.Marshal(agents)
 		if err != nil {
 			log.Printf("JSON marshal error: %v", err)
