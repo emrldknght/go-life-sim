@@ -1,4 +1,4 @@
-import { Agent, WebSocketCommand } from './types';
+import { Agent, Command } from './types';
 
 type WorldUpdateCallback = (agents: Agent[]) => void;
 
@@ -46,12 +46,32 @@ export class WorldConnection {
 		}
 	}
 
-	sendCommand(command: WebSocketCommand): void {
+	// Отправка команды (принимает любой допустимый тип)
+	sendCommand(command: Command): void {
 		if (this.socket && this.socket.readyState === WebSocket.OPEN) {
 			this.socket.send(JSON.stringify(command));
 		} else {
 			console.warn('WebSocket not connected, command not sent');
 		}
+	}
+
+	// Удобный метод для смены скорости
+	setSpeed(speed: number): void {
+		this.sendCommand({ action: 'set_speed', speed });
+	}
+
+	// Удобный метод для сброса
+	reset(): void {
+		this.sendCommand({ action: 'reset' });
+	}
+
+	// Удобный метод для паузы/возобновления
+	pause(): void {
+		this.sendCommand({ action: 'pause' });
+	}
+
+	resume(): void {
+		this.sendCommand({ action: 'resume' });
 	}
 
 	onUpdate(callback: WorldUpdateCallback): () => void {

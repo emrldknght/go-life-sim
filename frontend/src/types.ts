@@ -15,6 +15,14 @@ export interface WorldState {
 	timestamp: number;
 }
 
+export type WebSocketAction = 'reset' | 'pause' | 'resume' | 'set_speed';
+
 export interface WebSocketCommand {
-	action: 'reset' | 'pause' | 'resume';
+	action: WebSocketAction;
 }
+export interface SetSpeedCommand extends WebSocketCommand {
+	action: 'set_speed';
+	speed: number;
+}
+
+export type Command = WebSocketCommand | SetSpeedCommand;

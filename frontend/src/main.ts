@@ -15,9 +15,11 @@ const totalCountEl = document.getElementById('total-count');
 const resetBtn = document.getElementById('reset-btn');
 const pauseBtn = document.getElementById('pause-btn');
 const statusEl = document.getElementById('status');
+const speedBtns = document.querySelectorAll('.speed-btn');
 
 // Состояние
 let isPaused = false;
+let currentSpeed = 1;
 
 function updateStats(agents: Agent[]): void {
 	let plants = 0, herbivores = 0, predators = 0;
@@ -36,6 +38,28 @@ function updateStats(agents: Agent[]): void {
 	if (totalCountEl) totalCountEl.textContent = agents.length.toString();
 }
 
+// Функция изменения скорости
+function setSpeed(speed: number): void {
+	currentSpeed = speed;
+	worldConnection.setSpeed(speed);
+
+	// Обновляем активную кнопку
+	speedBtns.forEach(btn => {
+		const btnSpeed = parseFloat(btn.getAttribute('data-speed') || '1');
+		if (btnSpeed === speed) {
+			btn.classList.add('active');
+		} else {
+			btn.classList.remove('active');
+		}
+	});
+
+	// Обновляем статус
+	if (statusEl && !isPaused) {
+		const speedText = speed === 1 ? '' : ` x${speed}`;
+		statusEl.textContent = `🟢 Running${speedText}`;
+	}
+}
+
 // Подписка на обновления мира
 worldConnection.onUpdate((agents) => {
 	if (!isPaused) {
@@ -44,11 +68,18 @@ worldConnection.onUpdate((agents) => {
 	}
 });
 
-// Кнопки управления
-resetBtn?.addEventListener('click', () => {
-	worldConnection.sendCommand({ action: 'reset' });
+// Кнопки управления скоростью
+speedBtns.forEach(btn => {
+	btn.addEventListener('click', () => {
+		const speed = parseFloat(btn.getAttribute('data-speed') || '1');
+		setSpeed(speed);
+	});
+});
 
-	// Визуальная обратная связь
+// Кнопка перезапуска
+resetBtn?.addEventListener('click', () => {
+	worldConnection.reset();
+
 	if (resetBtn) {
 		const originalText = resetBtn.textContent;
 		resetBtn.textContent = '✅ Resetting...';
@@ -57,24 +88,37 @@ resetBtn?.addEventListener('click', () => {
 		}, 1000);
 	}
 
-	// Если игра на паузе — снимаем паузу для отображения нового мира
+	// Если игра на паузе — снимаем паузу
 	if (isPaused) {
 		isPaused = false;
 		if (pauseBtn) pauseBtn.textContent = '⏸️ Pause';
 		if (statusEl) {
-			statusEl.textContent = '🟢 Running';
+			const speedText = currentSpeed === 1 ? '' : ` x${currentSpeed}`;
+			statusEl.textContent = `🟢 Running${speedText}`;
 			statusEl.style.opacity = '1';
 		}
 	}
 });
 
+// Кнопка паузы
 pauseBtn?.addEventListener('click', () => {
 	isPaused = !isPaused;
+	if (isPaused) {
+		worldConnection.pause();
+	} else {
+		worldConnection.resume();
+	}
+
 	if (pauseBtn) {
 		pauseBtn.textContent = isPaused ? '▶️ Resume' : '⏸️ Pause';
 	}
 	if (statusEl) {
-		statusEl.textContent = isPaused ? '⏸️ Paused' : '🟢 Running';
+		if (isPaused) {
+			statusEl.textContent = '⏸️ Paused';
+		} else {
+			const speedText = currentSpeed === 1 ? '' : ` x${currentSpeed}`;
+			statusEl.textContent = `🟢 Running${speedText}`;
+		}
 		statusEl.style.opacity = isPaused ? '0.7' : '1';
 	}
 });
